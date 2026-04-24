@@ -1,0 +1,38 @@
+/target/
+.mvn/wrapper/maven-wrapper.jar
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+.DS_Store
+Thumbs.db
+*.class
+*.jar
+*.war
+*.ear
+dependency-reduced-pom.xml
+coverage/
+
+## IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+## Eclipse
+.project
+.classpath
+.settings/
+bin/
+
+## NetBeans
+nbproject/private/
+build/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+## VS Code
+.vscode/
