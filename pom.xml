@@ -40,6 +40,11 @@
         <artifactId>org.eclipse.lsp4j.jsonrpc</artifactId>
         <version>0.20.1</version>
     </dependency>
+    <dependency>
+        <groupId>org.antlr</groupId>
+        <artifactId>antlr4-runtime</artifactId>
+        <version>4.13.1</version>
+    </dependency>
   </dependencies>
 
   <build>
@@ -68,6 +73,25 @@
               </execution>
           </executions>
         </plugin>
+        <plugin>
+            <groupId>org.antlr</groupId>
+            <artifactId>antlr4-maven-plugin</artifactId>
+            <version>4.13.1</version>
+            <executions>
+                <execution>
+                    <id>antlr</id>
+                    <phase>generate-sources</phase> <goals>
+                        <goal>antlr4</goal>
+                    </goals>
+                <configuration>
+                    <outputDirectory>${project.build.directory}/generated-sources/antlr4</outputDirectory>
+
+                    <visitor>true</visitor>
+                    <listener>true</listener>
+                </configuration>
+                </execution>
+            </executions>
+        </plugin>
     </plugins>
     <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->
       <plugins>
@@ -83,7 +107,7 @@
         </plugin>
         <plugin>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.8.0</version>
+          <version>3.13.0</version>
         </plugin>
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
