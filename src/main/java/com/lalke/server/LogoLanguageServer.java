@@ -1,5 +1,7 @@
 package com.lalke.server;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.lsp4j.CompletionOptions;
@@ -7,6 +9,8 @@ import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
+import org.eclipse.lsp4j.SemanticTokensLegend;
+import org.eclipse.lsp4j.SemanticTokensWithRegistrationOptions;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -34,8 +38,25 @@ public class LogoLanguageServer implements LanguageServer, LanguageClientAware {
     public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
         InitializeResult res = new InitializeResult();
         ServerCapabilities capabilities = new ServerCapabilities();
+        
         capabilities.setCompletionProvider(new CompletionOptions());
         capabilities.setTextDocumentSync(TextDocumentSyncKind.Full);
+
+        SemanticTokensWithRegistrationOptions semanticTokensOptions = new SemanticTokensWithRegistrationOptions();
+        semanticTokensOptions.setLegend(new SemanticTokensLegend(
+            Arrays.asList(
+                "keyword",    // 0
+                "variable",   // 1
+                "function",   // 2
+                "number",     // 3
+                "string",     // 4
+                "operator"    // 5 (used for brackets)
+            ),
+            new ArrayList<>()
+        ));
+        semanticTokensOptions.setFull(true);
+        capabilities.setSemanticTokensProvider(semanticTokensOptions);
+
         res.setCapabilities(capabilities);
         return CompletableFuture.completedFuture(res);
     }

@@ -37,12 +37,4 @@ nbdist/
 ## VS Code
 .vscode/
 
-## ANTLR4
-*.tokens
-*.interp
-*Lexer.java
-*Parser.java
-*Listener.java
-*Visitor.java
-*BaseListener.java
-*BaseVisitor.java
+**/.antlr/

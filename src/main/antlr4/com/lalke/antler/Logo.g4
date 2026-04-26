@@ -35,13 +35,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 grammar Logo;   
 
 prog
-    : (line? EOL)+ line? EOF
+    : (line | EOL)* EOF
     ;
 
 line
-    : cmd+ comment?
+    : (cmd | print_)+ comment?
     | comment
-    | print_ comment?
     | procedureDeclaration
     ;
 
@@ -64,6 +63,10 @@ cmd
     | ife
     | stop
     | fore
+    | setwidth
+    | setcolor
+    | setpencolor
+    | local
     ;
 
 procedureInvocation
@@ -83,11 +86,11 @@ func_
     ;
 
 repeat_
-    : 'repeat' number block
+    : 'repeat' value block
     ;
 
 block
-    : '[' cmd+ ']'
+    : '[' (line | EOL)* ']'
     ;
 
 ife
@@ -105,7 +108,7 @@ comparisonOperator
     ;
 
 make
-    : 'make' STRINGLITERAL value
+    : 'make' STRINGLITERAL terminal
     ;
 
 print_
@@ -126,6 +129,8 @@ value
     | deref
     ;
 
+local : 'local' STRINGLITERAL ;
+
 signExpression
     : (('+' | '-'))* (number | deref | func_)
     ;
@@ -136,6 +141,12 @@ multiplyingExpression
 
 expression
     : multiplyingExpression (('+' | '-') multiplyingExpression)*
+    ;
+
+terminal
+    : expression
+    | STRINGLITERAL
+    | deref
     ;
 
 deref
@@ -199,6 +210,18 @@ setxy
     : 'setxy' expression expression
     ;
 
+setwidth
+    : 'setwidth' expression
+    ;
+
+setcolor
+    : 'setcolor' terminal
+    ;
+
+setpencolor
+    : 'setpencolor' terminal
+    ;
+
 random
     : 'random' expression
     ;
@@ -216,7 +239,7 @@ comment
     ;
 
 STRINGLITERAL
-    : '"' STRING
+    : ('"' | '\'') STRING
     ;
 
 STRING
