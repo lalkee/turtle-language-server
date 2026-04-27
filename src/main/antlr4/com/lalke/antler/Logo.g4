@@ -67,22 +67,238 @@ cmd
     | setcolor
     | setpencolor
     | local
+    | setx
+    | sety
+    | seth
+    | arc
+    | ellipse
+    | pos
+    | xcor
+    | ycor
+    | heading
+    | towards
+    | fill
+    | filled
+    | setlabelheight
+    | wrap
+    | window
+    | fence
+    | wait_cmd
+    | bye
+    | ifelse
+    | test
+    | iffalse
+    | iftrue
+    | while
+    | until
+    | dowhile
+    | dountil
+    | dotimes
+    | sum
+    | minus
+    | modulo
+    | power
+    | word
+    | listp
+    | arrayp
+    | numberp
+    | emptyp
+    | equalp
+    | notequalp
+    | beforep
+    | list_cmd
+    | first
+    | last
+    | butfirst
+    | butlast
+    | item
+    | pick
+    | readword
+    | readlist
+    | name_cmd
+    | localmake
     ;
+
+localmake
+    : 'localmake' STRINGLITERAL terminal
+    ;
+
+readword
+    : 'readword' terminal
+    ;
+
+readlist
+    : 'readlist' terminal
+    ;
+
+word
+    : ('word' | 'word?') terminal
+    ;
+
+listp
+    : ('listp' | 'list?') terminal
+    ;
+
+arrayp
+    : ('arrayp' | 'array?') terminal
+    ;
+
+numberp
+    : ('numberp' | 'number?') terminal
+    ;
+
+emptyp
+    : ('emptyp' | 'empty?') terminal
+    ;
+
+equalp
+    : ('equalp' | 'equal?') terminal terminal
+    ;
+
+notequalp
+    : ('notequalp' | 'notequal?') terminal terminal
+    ;
+
+beforep
+    : ('beforep' | 'before?') terminal terminal
+    ;
+
+list_cmd
+    : 'list' terminal+;
+
+first
+    : 'first' terminal;
+
+last
+    : 'last' terminal ;
+
+butfirst
+    : ('butfirst' | 'bf') terminal ;
+
+butlast
+    : ('butlast' | 'bl') terminal ;
+
+item
+    : 'item' expression terminal ;
+
+pick
+    : 'pick' terminal ;
+
+sum
+    : 'sum' expression expression;
+
+minus
+    : 'minus' expression expression;
+
+modulo
+    : 'modulo' expression expression;
+
+power
+    : 'power' expression expression; 
+
+ifelse
+    : 'ifelse' expression block block;
+
+test
+    : 'test' expression;
+
+iftrue
+    : 'iftrue' block;
+
+iffalse
+    : 'iffalse' block;
+
+while
+    : 'while' expression block;
+
+dowhile
+    : 'do.while' block expression;
+
+dountil
+    : 'do.until' block expression;
+
+until
+    : 'until' expression block;
+
+dotimes
+    : 'dotimes' '[' name expression ']' block
+    ;
+
+setx 
+    : 'setx' expression;
+
+sety
+    : 'sety' expression;
+
+seth
+    : ('setheading' | 'seth' | 'sh') expression;
+
+arc
+    : 'arc' expression expression;
+
+ellipse
+    : 'ellipse' expression expression;
+
+pos
+    : 'pos';
+
+xcor
+    : 'xcor';
+
+ycor
+    : 'ycor';
+
+heading
+    : 'heading';
+
+towards
+    : 'towards';
+
+fill
+    : 'fill';
+
+filled
+    : 'filled' terminal;
+
+wrap
+    : 'wrap';
+
+window
+    : 'window';
+
+fence
+    : 'fence';
+
+wait_cmd
+    : 'wait' expression;
+
+bye
+    : 'bye';
+
+setlabelheight
+    : 'setlabelheight' expression;
 
 procedureInvocation
-    : name expression*
-    ;
+    : name expression*;
 
 procedureDeclaration
-    : 'to' name parameterDeclarations* EOL? (line? EOL)+ 'end'
-    ;
+    : 'to' name parameter* EOL? (line? EOL)+ 'end';
 
-parameterDeclarations
-    : ':' name (',' parameterDeclarations)*
-    ;
+parameter
+    : ':' name;
 
 func_
     : random
+    | word
+    | listp
+    | arrayp
+    | numberp
+    | emptyp
+    | equalp
+    | notequalp
+    | beforep
+    | readword
+    | readlist
     ;
 
 repeat_
@@ -93,23 +309,20 @@ block
     : '[' (line | EOL)* ']'
     ;
 
+list
+    : '[' (terminal | EOL | WS)* ']'
+    ;
+
 ife
-    : 'if' comparison block
-    ;
-
-comparison
-    : expression comparisonOperator expression
-    ;
-
-comparisonOperator
-    : '<'
-    | '>'
-    | '='
+    : 'if' expression block
     ;
 
 make
     : 'make' STRINGLITERAL terminal
     ;
+
+name_cmd
+    : 'name' terminal STRINGLITERAL;
 
 print_
     : 'print' (value | quotedstring)
@@ -127,6 +340,7 @@ value
     : STRINGLITERAL
     | expression
     | deref
+    | list
     ;
 
 local : 'local' STRINGLITERAL ;
@@ -135,18 +349,32 @@ signExpression
     : (('+' | '-'))* (number | deref | func_)
     ;
 
-multiplyingExpression
-    : signExpression (('*' | '/') signExpression)*
+expression
+    : comparisonExpression
     ;
 
-expression
+comparisonExpression
+    : arithmeticExpression (comparisonOperator arithmeticExpression)*
+    ;
+
+comparisonOperator
+    : '<' | '>' | '=' | '<=' | '>='
+    ;
+
+arithmeticExpression
     : multiplyingExpression (('+' | '-') multiplyingExpression)*
     ;
 
+multiplyingExpression
+    : signExpression (('*' | '/') signExpression)*
+    ;
 terminal
     : expression
     | STRINGLITERAL
     | deref
+    | list
+    | func_
+    | '(' terminal ')'
     ;
 
 deref
@@ -203,7 +431,7 @@ stop
     ;
 
 label
-    : 'label'
+    : 'label' STRINGLITERAL
     ;
 
 setxy

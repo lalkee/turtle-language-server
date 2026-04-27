@@ -12,15 +12,16 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
-import org.eclipse.lsp4j.CompletionItem;
-import org.eclipse.lsp4j.CompletionList;
-import org.eclipse.lsp4j.CompletionParams;
+import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.Location;
+import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
+import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensParams;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -30,12 +31,15 @@ import org.eclipse.lsp4j.services.TextDocumentService;
 import com.lalke.antler.LogoLexer;
 import com.lalke.antler.LogoParser;
 import com.lalke.parser.LogoSemanticsListener;
+import com.lalke.parser.LogoSymbolListener;
+import com.lalke.parser.LogoSymbolTable;
 import com.lalke.parser.TreeUtil;
 
 public class LogoTextDocumentService implements TextDocumentService {
     private LogoLanguageServer server;
     private LanguageClient client;
     private final Map<String, String> documentContentMap = new ConcurrentHashMap<>();
+    private final Map<String, LogoSymbolTable> symbolTableMap = new ConcurrentHashMap<>();
 
     public LogoTextDocumentService(LogoLanguageServer server) {
         this.server = server;
@@ -47,7 +51,10 @@ public class LogoTextDocumentService implements TextDocumentService {
 
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
-        documentContentMap.put(params.getTextDocument().getUri(), params.getTextDocument().getText());
+        String uri = params.getTextDocument().getUri();
+        String content = params.getTextDocument().getText();
+        documentContentMap.put(uri, content);
+        updateSymbolTable(uri, content);
     }
 
     @Override
@@ -56,6 +63,7 @@ public class LogoTextDocumentService implements TextDocumentService {
         String content = params.getContentChanges().get(0).getText();
         
         documentContentMap.put(uri, content);
+        updateSymbolTable(uri, content);
 
         try {
             CharStream stream = CharStreams.fromString(content);
@@ -69,30 +77,84 @@ public class LogoTextDocumentService implements TextDocumentService {
         }
     }
 
+    private void updateSymbolTable(String uri, String content) {
+        LogoSymbolTable symbolTable = new LogoSymbolTable();
+        CharStream stream = CharStreams.fromString(content);
+        LogoLexer lexer = new LogoLexer(stream);
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
+        LogoParser parser = new LogoParser(tokens);
+        ParseTree tree = parser.prog();
+
+        LogoSymbolListener listener = new LogoSymbolListener(symbolTable, uri);
+        ParseTreeWalker.DEFAULT.walk(listener, tree);
+        symbolTableMap.put(uri, symbolTable);
+    }
+
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
-        documentContentMap.remove(params.getTextDocument().getUri());
+        String uri = params.getTextDocument().getUri();
+        documentContentMap.remove(uri);
+        symbolTableMap.remove(uri);
+    }
+
+    @Override
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
+        String uri = params.getTextDocument().getUri();
+        Position pos = params.getPosition();
+        LogoSymbolTable symbolTable = symbolTableMap.get(uri);
+        if (symbolTable == null) {
+            return CompletableFuture.completedFuture(Either.forLeft(new ArrayList<>()));
+        }
+
+        String content = documentContentMap.get(uri);
+        if (content == null) {
+            return CompletableFuture.completedFuture(Either.forLeft(new ArrayList<>()));
+        }
+
+        String word = getWordAt(content, pos);
+        if (word == null) {
+            return CompletableFuture.completedFuture(Either.forLeft(new ArrayList<>()));
+        }
+
+        List<Location> locations = new ArrayList<>();
+        Location procLoc = symbolTable.getProcedureDefinition(word);
+        if (procLoc != null) {
+            locations.add(procLoc);
+        }
+        Location varLoc = symbolTable.getVariableDefinition(word);
+        if (varLoc != null) {
+            locations.add(varLoc);
+        }
+
+        return CompletableFuture.completedFuture(Either.forLeft(locations));
+    }
+
+    private String getWordAt(String content, Position pos) {
+        String[] lines = content.split("\\r?\\n", -1);
+        if (pos.getLine() >= lines.length) return null;
+        String line = lines[pos.getLine()];
+        int col = pos.getCharacter();
+        if (col >= line.length()) return null;
+
+        int start = col;
+        while (start > 0 && isLogoNamePart(line.charAt(start - 1))) {
+            start--;
+        }
+        int end = col;
+        while (end < line.length() && isLogoNamePart(line.charAt(end))) {
+            end++;
+        }
+
+        if (start == end) return null;
+        return line.substring(start, end);
+    }
+
+    private boolean isLogoNamePart(char c) {
+        return Character.isLetterOrDigit(c) || c == '_';
     }
 
     @Override
     public void didSave(DidSaveTextDocumentParams params) {
-    }
-
-    @Override
-    public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(CompletionParams position) {
-        List<CompletionItem> completionItems = new ArrayList<>();
-
-        CompletionItem item1 = new CompletionItem("test");
-        item1.setInsertText("test1");
-        item1.setDetail("aaaaaaaaaaa");
-        completionItems.add(item1);
-
-        CompletionItem item2 = new CompletionItem("test2");
-        item2.setInsertText("test2");
-
-        completionItems.add(item2);
-
-        return CompletableFuture.completedFuture(Either.forLeft(completionItems));
     }
 
     @Override
