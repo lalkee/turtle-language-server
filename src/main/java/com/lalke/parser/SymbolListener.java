@@ -8,17 +8,21 @@ import com.lalke.antler.LogoBaseListener;
 import com.lalke.antler.LogoParser;
 import com.lalke.antler.LogoParser.ProcedureDeclarationContext;
 
-public class LogoSymbolListener extends LogoBaseListener {
-    private final LogoSymbolTable symbolTable;
+public class SymbolListener extends LogoBaseListener {
+    private final SymbolTable symbolTable;
     private final String uri;
+    private Range currentProcedureScope = null;
 
-    public LogoSymbolListener(LogoSymbolTable symbolTable, String uri) {
+    public SymbolListener(SymbolTable symbolTable, String uri) {
         this.symbolTable = symbolTable;
         this.uri = uri;
     }
 
     @Override
     public void enterProcedureDeclaration(ProcedureDeclarationContext ctx) {
+        Range procRange = toFullRange(ctx.getStart(), ctx.getStop());
+        currentProcedureScope = procRange;
+
         if (ctx.name() != null) {
             Token nameToken = ctx.name().getStart();
             symbolTable.addProcedure(nameToken.getText(), uri, toRange(nameToken));
@@ -27,9 +31,14 @@ public class LogoSymbolListener extends LogoBaseListener {
         if (ctx.parameter() != null) {
             for (var paramCtx : ctx.parameter()) {
                 Token pToken = paramCtx.name().getStart();
-                symbolTable.addVariable(pToken.getText(), uri, toRange(pToken));
+                symbolTable.addVariable(pToken.getText(), uri, toRange(pToken), procRange);
             }
         }
+    }
+
+    @Override
+    public void exitProcedureDeclaration(ProcedureDeclarationContext ctx) {
+        currentProcedureScope = null;
     }
 
     @Override
@@ -37,7 +46,7 @@ public class LogoSymbolListener extends LogoBaseListener {
         if (ctx.STRINGLITERAL() != null) {
             Token token = ctx.STRINGLITERAL().getSymbol();
             String name = token.getText().substring(1); // removes " or '
-            symbolTable.addVariable(name, uri, toRange(token));
+            symbolTable.addVariable(name, uri, toRange(token), currentProcedureScope);
         }
     }
 
@@ -46,7 +55,7 @@ public class LogoSymbolListener extends LogoBaseListener {
         if (ctx.STRINGLITERAL() != null) {
             Token token = ctx.STRINGLITERAL().getSymbol();
             String name = token.getText().substring(1); 
-            symbolTable.addVariable(name, uri, toRange(token));
+            symbolTable.addVariable(name, uri, toRange(token), currentProcedureScope);
         }
     }
 
@@ -55,7 +64,7 @@ public class LogoSymbolListener extends LogoBaseListener {
         if (ctx.STRINGLITERAL() != null) {
             Token token = ctx.STRINGLITERAL().getSymbol();
             String name = token.getText().substring(1); 
-            symbolTable.addVariable(name, uri, toRange(token));
+            symbolTable.addVariable(name, uri, toRange(token), currentProcedureScope);
         }
     }
 
@@ -64,31 +73,42 @@ public class LogoSymbolListener extends LogoBaseListener {
         if (ctx.STRINGLITERAL() != null) {
             Token token = ctx.STRINGLITERAL().getSymbol();
             String name = token.getText().substring(1);
-            symbolTable.addVariable(name, uri, toRange(token));
+            symbolTable.addVariable(name, uri, toRange(token), currentProcedureScope);
         }
     }
 
     @Override
     public void enterFore(LogoParser.ForeContext ctx) {
-        if (ctx.name() != null) {
+        if (ctx.name() != null && ctx.block() != null) {
             Token nameToken = ctx.name().getStart();
-            symbolTable.addVariable(nameToken.getText(), uri, toRange(nameToken));
+            
+            Range blockScope = toFullRange(ctx.block().getStart(), ctx.block().getStop());
+            
+            symbolTable.addVariable(nameToken.getText(), uri, toRange(nameToken), blockScope);
         }
     }
 
     @Override
     public void enterDotimes(LogoParser.DotimesContext ctx) {
-        if (ctx.name() != null) {
+        if (ctx.name() != null && ctx.block() != null) {
             Token nameToken = ctx.name().getStart();
-            symbolTable.addVariable(nameToken.getText(), uri, toRange(nameToken));
+            
+            Range blockScope = toFullRange(ctx.block().getStart(), ctx.block().getStop());
+            
+            symbolTable.addVariable(nameToken.getText(), uri, toRange(nameToken), blockScope);
         }
     }
 
-    //converts antlr token properties into lsp range object
     private Range toRange(Token token) {
-        //antlr's indexing starts at 1, while lsp4j uses 0-based indexing
         int line = token.getLine() - 1;
         int col = token.getCharPositionInLine();
         return new Range(new Position(line, col), new Position(line, col + token.getText().length()));
+    }
+
+    private Range toFullRange(Token start, Token stop) {
+        return new Range(
+            new Position(start.getLine() - 1, start.getCharPositionInLine()),
+            new Position(stop.getLine() - 1, stop.getCharPositionInLine() + stop.getText().length())
+        );
     }
 }

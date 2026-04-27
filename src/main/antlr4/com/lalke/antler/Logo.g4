@@ -282,7 +282,8 @@ procedureInvocation
     : name expression*;
 
 procedureDeclaration
-    : 'to' name parameter* EOL? (line? EOL)+ 'end';
+    : 'to' name parameter* EOL? (line | EOL)* 'end'
+    ;
 
 parameter
     : ':' name;
@@ -369,12 +370,12 @@ multiplyingExpression
     : signExpression (('*' | '/') signExpression)*
     ;
 terminal
-    : expression
+    : '(' expression ')'
+    | expression
     | STRINGLITERAL
     | deref
     | list
     | func_
-    | '(' terminal ')'
     ;
 
 deref
@@ -467,7 +468,7 @@ comment
     ;
 
 STRINGLITERAL
-    : ('"' | '\'') STRING
+    : ('"' | '\'') ~[ \t\r\n]+
     ;
 
 STRING
@@ -475,7 +476,7 @@ STRING
     ;
 
 NUMBER
-    : [0-9]+
+    : [0-9]+ ('.' [0-9]+)?
     ;
 
 COMMENT
@@ -483,9 +484,9 @@ COMMENT
     ;
 
 EOL
-    : '\r'? '\n'
+    : ( '\r' | '\n' | '\r\n' )
     ;
 
 WS
-    : [ \t\r\n] -> skip
+    : [ \t]+ -> skip
     ;

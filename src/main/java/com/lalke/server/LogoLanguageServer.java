@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 
+import org.eclipse.lsp4j.CompletionOptions;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
 import org.eclipse.lsp4j.InitializeParams;
@@ -39,6 +40,7 @@ public class LogoLanguageServer implements LanguageServer, LanguageClientAware {
         ServerCapabilities capabilities = new ServerCapabilities();
         
         capabilities.setDefinitionProvider(true);
+        capabilities.setCompletionProvider(new CompletionOptions());
         capabilities.setTextDocumentSync(TextDocumentSyncKind.Full);
 
         SemanticTokensWithRegistrationOptions semanticTokensOptions = new SemanticTokensWithRegistrationOptions();
@@ -49,7 +51,8 @@ public class LogoLanguageServer implements LanguageServer, LanguageClientAware {
                 "function",   // 2
                 "number",     // 3
                 "string",     // 4
-                "operator"    // 5 (used for brackets)
+                "operator",    // 5 (used for brackets)
+                "comment"   // 6
             ),
             new ArrayList<>()
         ));

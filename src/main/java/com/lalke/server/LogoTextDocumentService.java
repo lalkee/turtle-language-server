@@ -9,9 +9,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
+import org.eclipse.lsp4j.CompletionItem;
+import org.eclipse.lsp4j.CompletionList;
+import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
@@ -19,9 +21,6 @@ import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
-import org.eclipse.lsp4j.MessageParams;
-import org.eclipse.lsp4j.MessageType;
-import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensParams;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -30,16 +29,16 @@ import org.eclipse.lsp4j.services.TextDocumentService;
 
 import com.lalke.antler.LogoLexer;
 import com.lalke.antler.LogoParser;
-import com.lalke.parser.LogoSemanticsListener;
-import com.lalke.parser.LogoSymbolListener;
-import com.lalke.parser.LogoSymbolTable;
-import com.lalke.parser.TreeUtil;
+import com.lalke.parser.CaseChangingCharStream;
+import com.lalke.parser.SemanticsListener;
+import com.lalke.parser.SymbolListener;
+import com.lalke.parser.SymbolTable;
 
 public class LogoTextDocumentService implements TextDocumentService {
     private LogoLanguageServer server;
     private LanguageClient client;
     private final Map<String, String> documentContentMap = new ConcurrentHashMap<>();
-    private final Map<String, LogoSymbolTable> symbolTableMap = new ConcurrentHashMap<>();
+    private final Map<String, SymbolTable> symbolTableMap = new ConcurrentHashMap<>();
 
     public LogoTextDocumentService(LogoLanguageServer server) {
         this.server = server;
@@ -47,6 +46,14 @@ public class LogoTextDocumentService implements TextDocumentService {
 
     public void setClient(LanguageClient client) {
         this.client = client;
+    }
+
+    private LogoParser createParser(String content) {
+        CharStream stream = CharStreams.fromString(content);
+        CaseChangingCharStream caseInsensitiveStream = new CaseChangingCharStream(stream);
+        LogoLexer lexer = new LogoLexer(caseInsensitiveStream);
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
+        return new LogoParser(tokens);
     }
 
     @Override
@@ -61,31 +68,16 @@ public class LogoTextDocumentService implements TextDocumentService {
     public void didChange(DidChangeTextDocumentParams params) {
         String uri = params.getTextDocument().getUri();
         String content = params.getContentChanges().get(0).getText();
-        
         documentContentMap.put(uri, content);
         updateSymbolTable(uri, content);
-
-        try {
-            CharStream stream = CharStreams.fromString(content);
-            LogoLexer lexer = new LogoLexer(stream);
-            CommonTokenStream tokens = new CommonTokenStream(lexer);
-            LogoParser parser = new LogoParser(tokens);
-            ParseTree tree = parser.prog();
-            client.logMessage(new MessageParams(MessageType.Info, "Parse Tree: " + TreeUtil.toPrettyTree(tree, parser)));
-        } catch (RecognitionException e) {
-            client.logMessage(new MessageParams(MessageType.Error, e.toString()));
-        }
     }
 
     private void updateSymbolTable(String uri, String content) {
-        LogoSymbolTable symbolTable = new LogoSymbolTable();
-        CharStream stream = CharStreams.fromString(content);
-        LogoLexer lexer = new LogoLexer(stream);
-        CommonTokenStream tokens = new CommonTokenStream(lexer);
-        LogoParser parser = new LogoParser(tokens);
+        SymbolTable symbolTable = new SymbolTable();
+        LogoParser parser = createParser(content);
         ParseTree tree = parser.prog();
 
-        LogoSymbolListener listener = new LogoSymbolListener(symbolTable, uri);
+        SymbolListener listener = new SymbolListener(symbolTable, uri);
         ParseTreeWalker.DEFAULT.walk(listener, tree);
         symbolTableMap.put(uri, symbolTable);
     }
@@ -98,77 +90,28 @@ public class LogoTextDocumentService implements TextDocumentService {
     }
 
     @Override
-    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
-        String uri = params.getTextDocument().getUri();
-        Position pos = params.getPosition();
-        LogoSymbolTable symbolTable = symbolTableMap.get(uri);
-        if (symbolTable == null) {
-            return CompletableFuture.completedFuture(Either.forLeft(new ArrayList<>()));
-        }
-
-        String content = documentContentMap.get(uri);
-        if (content == null) {
-            return CompletableFuture.completedFuture(Either.forLeft(new ArrayList<>()));
-        }
-
-        String word = getWordAt(content, pos);
-        if (word == null) {
-            return CompletableFuture.completedFuture(Either.forLeft(new ArrayList<>()));
-        }
-
-        List<Location> locations = new ArrayList<>();
-        Location procLoc = symbolTable.getProcedureDefinition(word);
-        if (procLoc != null) {
-            locations.add(procLoc);
-        }
-        Location varLoc = symbolTable.getVariableDefinition(word);
-        if (varLoc != null) {
-            locations.add(varLoc);
-        }
-
-        return CompletableFuture.completedFuture(Either.forLeft(locations));
-    }
-
-    private String getWordAt(String content, Position pos) {
-        String[] lines = content.split("\\r?\\n", -1);
-        if (pos.getLine() >= lines.length) return null;
-        String line = lines[pos.getLine()];
-        int col = pos.getCharacter();
-        if (col >= line.length()) return null;
-
-        int start = col;
-        while (start > 0 && isLogoNamePart(line.charAt(start - 1))) {
-            start--;
-        }
-        int end = col;
-        while (end < line.length() && isLogoNamePart(line.charAt(end))) {
-            end++;
-        }
-
-        if (start == end) return null;
-        return line.substring(start, end);
-    }
-
-    private boolean isLogoNamePart(char c) {
-        return Character.isLetterOrDigit(c) || c == '_';
+    public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(CompletionParams params) {
+        return CompletionHelper.getCompletion(params, documentContentMap, symbolTableMap);
     }
 
     @Override
-    public void didSave(DidSaveTextDocumentParams params) {
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
+        return DefinitionHelper.getDefinition(params, documentContentMap, symbolTableMap);
     }
 
     @Override
     public CompletableFuture<SemanticTokens> semanticTokensFull(SemanticTokensParams params) {
         String code = documentContentMap.get(params.getTextDocument().getUri());
-        
-        LogoLexer lexer = new LogoLexer(CharStreams.fromString(code));
-        LogoParser parser = new LogoParser(new CommonTokenStream(lexer));
+        if (code == null) return CompletableFuture.completedFuture(new SemanticTokens(new ArrayList<>()));
+
+        LogoParser parser = createParser(code);
         ParseTree tree = parser.prog();
 
-        LogoSemanticsListener listener = new LogoSemanticsListener();
+        SemanticsListener listener = new SemanticsListener();
         ParseTreeWalker.DEFAULT.walk(listener, tree);
 
         return CompletableFuture.completedFuture(new SemanticTokens(listener.getData()));
     }
-    
+
+    @Override public void didSave(DidSaveTextDocumentParams params) {}
 }
