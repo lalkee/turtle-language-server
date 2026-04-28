@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
@@ -22,6 +24,7 @@ public class SymbolTable {
         }
     }
 
+    //procedures are global, so keeping scope info is not needed
     private final Map<String, Location> procedures = new HashMap<>();
     private final List<VariableInfo> variables = new ArrayList<>();
 
@@ -37,52 +40,44 @@ public class SymbolTable {
         return procedures.get(name.toLowerCase());
     }
 
+    /*returns "closest" definition of variable. when document is parsed,
+    variable definitions are added in order they appear, so if variable with same name
+    is declared multiple times, local declaration is the one with highest index. thats why
+    variables are iterated over backwards.*/
     public Location getVariableDefinition(String name, Position pos) {
-        String lowerName = name.toLowerCase();
-        
-        for (int i = variables.size() - 1; i >= 0; i--) {
-            VariableInfo info = variables.get(i);
-            
-            if (info.name.equals(lowerName)) {
-                if (isPositionInRange(pos, info.scope)) {
-                    if (isBefore(info.location.getRange().getStart(), pos)) {
-                        return info.location;
-                    }
-                }
-            }
-        }
-        return null;
+        return IntStream.iterate(variables.size() - 1, i -> i >= 0, i -> i - 1)
+                        .mapToObj(variables::get)
+                        .filter(info -> info.name.equals(name.toLowerCase()))
+                        .filter(info -> isPositionInRange(pos, info.scope))
+                        .filter(info -> isBefore(info.location.getRange().getStart(), pos))
+                        .map(info -> info.location)
+                        .findFirst()
+                        .orElse(null);
     }
 
     public Map<String, Location> getProcedures() {
         return procedures;
     }
 
+    //returns all variable names in scope of current position
     public List<String> getVariablesAt(Position pos) {
-        List<String> result = new ArrayList<>();
-        for (VariableInfo info : variables) {
-            if (isPositionInRange(pos, info.scope)) {
-                if (!result.contains(info.name)) {
-                    result.add(info.name);
-                }
-            }
-        }
-        return result;
+        return variables.stream()
+            .filter(info -> isPositionInRange(pos, info.scope))
+            .map(info -> info.name)
+            .distinct()
+            .collect(Collectors.toList());
     }
 
     private boolean isPositionInRange(Position pos, Range range) {
         if (range == null) return true;
         
-        if (pos.getLine() < range.getStart().getLine() || pos.getLine() > range.getEnd().getLine()) {
+        if (pos.getLine() < range.getStart().getLine() || pos.getLine() > range.getEnd().getLine())
             return false;
-        }
-        if (pos.getLine() == range.getStart().getLine() && pos.getCharacter() < range.getStart().getCharacter()) {
+
+        if (pos.getLine() == range.getStart().getLine() && pos.getCharacter() < range.getStart().getCharacter())
             return false;
-        }
-        if (pos.getLine() == range.getEnd().getLine() && pos.getCharacter() > range.getEnd().getCharacter()) {
-            return false;
-        }
-        return true;
+
+        return !(pos.getLine() == range.getEnd().getLine() && pos.getCharacter() > range.getEnd().getCharacter());
     }
 
     private boolean isBefore(Position a, Position b) {

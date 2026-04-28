@@ -17,7 +17,7 @@ public class LogoKeywords {
         for (int i = 0; i <= max; i++) {
             String literalName = vocab.getLiteralName(i);
             if (literalName != null) {
-                // Remove ANTLR's single quotes (e.g., "'make'" -> "make")
+                // removea antlrs single quotes
                 String clean = literalName.replace("'", "");
                 
                 if (clean.matches("[a-zA-Z].*")) {

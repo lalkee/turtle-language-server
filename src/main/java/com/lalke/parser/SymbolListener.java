@@ -5,7 +5,12 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 
 import com.lalke.antler.LogoBaseListener;
-import com.lalke.antler.LogoParser;
+import com.lalke.antler.LogoParser.DotimesContext;
+import com.lalke.antler.LogoParser.ForeContext;
+import com.lalke.antler.LogoParser.LocalContext;
+import com.lalke.antler.LogoParser.LocalmakeContext;
+import com.lalke.antler.LogoParser.MakeContext;
+import com.lalke.antler.LogoParser.Name_cmdContext;
 import com.lalke.antler.LogoParser.ProcedureDeclarationContext;
 
 public class SymbolListener extends LogoBaseListener {
@@ -42,7 +47,7 @@ public class SymbolListener extends LogoBaseListener {
     }
 
     @Override
-    public void enterMake(LogoParser.MakeContext ctx) {
+    public void enterMake(MakeContext ctx) {
         if (ctx.STRINGLITERAL() != null) {
             Token token = ctx.STRINGLITERAL().getSymbol();
             String name = token.getText().substring(1); // removes " or '
@@ -51,7 +56,7 @@ public class SymbolListener extends LogoBaseListener {
     }
 
     @Override
-    public void enterName_cmd(LogoParser.Name_cmdContext ctx) {
+    public void enterName_cmd(Name_cmdContext ctx) {
         if (ctx.STRINGLITERAL() != null) {
             Token token = ctx.STRINGLITERAL().getSymbol();
             String name = token.getText().substring(1); 
@@ -60,7 +65,7 @@ public class SymbolListener extends LogoBaseListener {
     }
 
     @Override
-    public void enterLocalmake(LogoParser.LocalmakeContext ctx) {
+    public void enterLocalmake(LocalmakeContext ctx) {
         if (ctx.STRINGLITERAL() != null) {
             Token token = ctx.STRINGLITERAL().getSymbol();
             String name = token.getText().substring(1); 
@@ -69,7 +74,7 @@ public class SymbolListener extends LogoBaseListener {
     }
 
     @Override
-    public void enterLocal(LogoParser.LocalContext ctx) {
+    public void enterLocal(LocalContext ctx) {
         if (ctx.STRINGLITERAL() != null) {
             Token token = ctx.STRINGLITERAL().getSymbol();
             String name = token.getText().substring(1);
@@ -78,7 +83,7 @@ public class SymbolListener extends LogoBaseListener {
     }
 
     @Override
-    public void enterFore(LogoParser.ForeContext ctx) {
+    public void enterFore(ForeContext ctx) {
         if (ctx.name() != null && ctx.block() != null) {
             Token nameToken = ctx.name().getStart();
             
@@ -89,12 +94,12 @@ public class SymbolListener extends LogoBaseListener {
     }
 
     @Override
-    public void enterDotimes(LogoParser.DotimesContext ctx) {
+    public void enterDotimes(DotimesContext ctx) {
         if (ctx.name() != null && ctx.block() != null) {
             Token nameToken = ctx.name().getStart();
             
             Range blockScope = toFullRange(ctx.block().getStart(), ctx.block().getStop());
-            
+
             symbolTable.addVariable(nameToken.getText(), uri, toRange(nameToken), blockScope);
         }
     }

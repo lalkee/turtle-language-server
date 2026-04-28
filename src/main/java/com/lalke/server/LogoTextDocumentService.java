@@ -101,13 +101,16 @@ public class LogoTextDocumentService implements TextDocumentService {
 
     @Override
     public CompletableFuture<SemanticTokens> semanticTokensFull(SemanticTokensParams params) {
-        String code = documentContentMap.get(params.getTextDocument().getUri());
+        String uri = params.getTextDocument().getUri();
+        String code = documentContentMap.get(uri);
         if (code == null) return CompletableFuture.completedFuture(new SemanticTokens(new ArrayList<>()));
+
+        SymbolTable symbolTable = symbolTableMap.get(uri);
 
         LogoParser parser = createParser(code);
         ParseTree tree = parser.prog();
 
-        SemanticsListener listener = new SemanticsListener();
+        SemanticsListener listener = new SemanticsListener(symbolTable);
         ParseTreeWalker.DEFAULT.walk(listener, tree);
 
         return CompletableFuture.completedFuture(new SemanticTokens(listener.getData()));

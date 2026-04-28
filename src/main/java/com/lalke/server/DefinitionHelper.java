@@ -15,10 +15,9 @@ import com.lalke.parser.SymbolTable;
 
 public class DefinitionHelper {
 
-    public static CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> getDefinition(
-            DefinitionParams params,
-            Map<String, String> documentContentMap,
-            Map<String, SymbolTable> symbolTableMap) {
+    public static CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> getDefinition(DefinitionParams params,
+                Map<String, String> documentContentMap,
+                Map<String, SymbolTable> symbolTableMap) {
         
         String uri = params.getTextDocument().getUri();
         Position pos = params.getPosition();
@@ -33,12 +32,12 @@ public class DefinitionHelper {
         if (word == null) return CompletableFuture.completedFuture(Either.forLeft(new ArrayList<>()));
 
         List<Location> locations = new ArrayList<>();
-        String normalizedWord = word.toLowerCase();
+        String lowercaseWord = word.toLowerCase();
         
-        Location procLoc = symbolTable.getProcedureDefinition(normalizedWord);
+        Location procLoc = symbolTable.getProcedureDefinition(lowercaseWord);
         if (procLoc != null) locations.add(procLoc);
         
-        Location varLoc = symbolTable.getVariableDefinition(normalizedWord, pos);
+        Location varLoc = symbolTable.getVariableDefinition(lowercaseWord, pos);
         if (varLoc != null) locations.add(varLoc);
 
         return CompletableFuture.completedFuture(Either.forLeft(locations));
