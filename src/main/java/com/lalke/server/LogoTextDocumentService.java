@@ -29,7 +29,7 @@ import org.eclipse.lsp4j.services.TextDocumentService;
 
 import com.lalke.antler.LogoLexer;
 import com.lalke.antler.LogoParser;
-import com.lalke.parser.CaseChangingCharStream;
+import com.lalke.parser.LowercaseCharStream;
 import com.lalke.parser.SemanticsListener;
 import com.lalke.parser.SymbolListener;
 import com.lalke.parser.SymbolTable;
@@ -37,7 +37,10 @@ import com.lalke.parser.SymbolTable;
 public class LogoTextDocumentService implements TextDocumentService {
     private LogoLanguageServer server;
     private LanguageClient client;
+
+    //stores the current text content of each open file, keyed by uri
     private final Map<String, String> documentContentMap = new ConcurrentHashMap<>();
+    //stores the analyzed symbols (variables, procedures) used for autocompletion and definition
     private final Map<String, SymbolTable> symbolTableMap = new ConcurrentHashMap<>();
 
     public LogoTextDocumentService(LogoLanguageServer server) {
@@ -50,8 +53,9 @@ public class LogoTextDocumentService implements TextDocumentService {
 
     private LogoParser createParser(String content) {
         CharStream stream = CharStreams.fromString(content);
-        CaseChangingCharStream caseInsensitiveStream = new CaseChangingCharStream(stream);
-        LogoLexer lexer = new LogoLexer(caseInsensitiveStream);
+        //makes lexer see all characters as lowercase (becasue logo is case insensitive)
+        LowercaseCharStream lowercaseCharStream = new LowercaseCharStream(stream);
+        LogoLexer lexer = new LogoLexer(lowercaseCharStream);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         return new LogoParser(tokens);
     }
@@ -75,7 +79,7 @@ public class LogoTextDocumentService implements TextDocumentService {
     private void updateSymbolTable(String uri, String content) {
         SymbolTable symbolTable = new SymbolTable();
         LogoParser parser = createParser(content);
-        ParseTree tree = parser.prog();
+        ParseTree tree = parser.prog(); //prog is root rule in my grammar
 
         SymbolListener listener = new SymbolListener(symbolTable, uri);
         ParseTreeWalker.DEFAULT.walk(listener, tree);

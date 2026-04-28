@@ -59,7 +59,7 @@
               </descriptorRefs>
               <archive>
                   <manifest>
-                      <mainClass>com.lalke.LspLauncher</mainClass>
+                      <mainClass>com.lalke.LsLauncher</mainClass>
                   </manifest>
               </archive>
           </configuration>

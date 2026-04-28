@@ -3,16 +3,20 @@ package com.lalke.parser;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.misc.Interval;
 
-public class CaseChangingCharStream implements CharStream {
+public class LowercaseCharStream implements CharStream {
     private final CharStream delegate;
 
-    public CaseChangingCharStream(CharStream delegate) {
+    public LowercaseCharStream(CharStream delegate) {
         this.delegate = delegate;
     }
 
+    /*la = look ahead. it is used in antlr to peek at next character from stream.
+    by overriding it this way, lexer will see all characters as lowercase.
+    this is needed as logo is completely case insensitive*/
     @Override
     public int LA(int i) {
         int c = delegate.LA(i);
+        //eof is -1
         if (c <= 0) return c;
         return Character.toLowerCase(c);
     }
